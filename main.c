@@ -17,12 +17,14 @@ int main(void)
   if(seteuid(myuid) == -1)
   {
     fprintf(stderr, "error setting uid: %s\n", strerror(errno));
+    exit(EXIT_FAILURE);
   }
 
   //make sure egid is the same as gid
   if(setegid(mygid) == -1)
   {
     fprintf(stderr, "error setting uid: %s\n", strerror(errno));
+    exit(EXIT_FAILURE);
   }
 
   printf("myeuid: %d\n", geteuid());

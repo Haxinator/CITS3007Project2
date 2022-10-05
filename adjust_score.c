@@ -1,4 +1,4 @@
-
+#define _POSIX_C_SOURCE 200112L
 #include "curdle.h"
 
 /** \file adjust_score.c
@@ -25,7 +25,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <pwd.h>
 /** Size of a field (name or score) in a line of the `scores`
   * file.
   */
@@ -197,29 +196,28 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
   */
 int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **message) {
   int fd;
-  uid_t curdle_uid;
-  struct passwd* pwd;
 
-//not needed? since uid param is the uid of the owner of scores file.
-
-  
-  //pwd = getpwnam("curdle");
-/*
-  if(pwd == NULL)
-  {
-    fprintf(stderr, "User \"curdle\" does not exist: %s\n", strerror(errno));
-  }
-*/
+  printf("\n\t adjust_score file\n");
   printf("curdle uid: %d\n", uid);
   printf("current user uid: %d\n", getuid());
-  //curdle_uid = pwd->pw_uid;
-  //printf("curdle uid: %d\n", curdle_uid);
+
   //increase permissions.
-  setuid(uid);
+  if(seteuid(uid) == -1)
+  {
+    fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
   printf("increased effective user uid: %d\n", geteuid());
   fd = open(FILEPATH, O_RDWR | O_APPEND);
+
   //lower permissions.
-  setuid(getuid());
+  if(seteuid(getuid()) == -1)
+  {
+    fprintf(stderr, "Failed to lower permissions: %s\n", strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
   printf("lowered effective user uid: %d\n", geteuid());
 
   if(fd == -1)
