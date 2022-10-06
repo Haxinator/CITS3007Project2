@@ -153,16 +153,38 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   off_t offset;
   ssize_t bytes_read;
 
+  offset = 0;
   printf("\n\t find_record file\n");
   
-  offset = 0;
-  while((bytes_read = read(fd, buffer, REC_SIZE)) != 0)
+  while((bytes_read = read(fd, buffer, REC_SIZE)) > 0)
   {
+    //debugging
+    char * p = buffer+10;
     printf("bytes read: %li\n", bytes_read);
     printf("contents: %s\n", buffer);
+    printf("score: %s\n", p);
+
+    if(strncmp(buffer, player_name, 10) == 0)
+    {
+      printf("offset: %li\n", offset);
+
+      return offset;
+
+    } else {
+      //Increment offset to skip this record.
+      offset += bytes_read;
+    }
   }
 
-  return -1;
+  if(bytes_read == -1)
+  {
+    //read error occured.
+    perror("read");
+    exit(EXIT_FAILURE);
+  } else {
+    //if there was no error, no record was found.
+    return -1;
+  }
 }
 
 /** Adjust the score for player `player_name` in the open file

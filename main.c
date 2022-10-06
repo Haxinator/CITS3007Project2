@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
 int main(void)
 {
@@ -33,6 +34,5 @@ int main(void)
   char **message;
 
   adjust_score(1001,"BobFoster", 20, message);
-
   return 0;
 }
