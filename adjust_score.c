@@ -37,6 +37,8 @@ const size_t REC_SIZE   = REC_SIZE_;
 //actual
 //#define FILEPATH  "/var/lib/curdle/scores"
 
+#define REC_SIZE 21
+
 //for testing
 #define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
 
@@ -147,6 +149,19 @@ void store_record(char buf[REC_SIZE], const struct score_record *rec) {
   *   or -1 if no no such record exists.
   */
 off_t find_record(const char * filename, int fd, const char * player_name) {
+  char buffer[REC_SIZE];
+  off_t offset;
+  ssize_t bytes_read;
+
+  printf("\n\t find_record file\n");
+  
+  offset = 0;
+  while((bytes_read = read(fd, buffer, REC_SIZE)) != 0)
+  {
+    printf("bytes read: %li\n", bytes_read);
+    printf("contents: %s\n", buffer);
+  }
+
   return -1;
 }
 
@@ -168,11 +183,34 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   * \param score_to_add amount by which to increment the score.
   */
 void adjust_score_file(const char * filename, int fd, const char * player_name, int score_to_add) {
-    //use find_record here, if failure, make new record.
+  int offset;
+  struct score_record rec;
+  struct score_record oldRec;
+  //NEED TO CHECK IF SIZE == REC_SIZE IN FUNCTIONS USED
+  char* buf;
+  char* rec_buf;
+
+  printf("\n\t adjust_score_file\n");
+  score_record_init(&rec, player_name, score_to_add);
+  offset = find_record(filename, fd, player_name);
+
+  //if old record is found
+  if(offset != -1)
+  {
+    //CALL READ HERE//
     //call parse_record (however if new, make a store_record struct).
+    oldRec = parse_record(rec_buf);
     //adjust the score.
-    //call store_record.
-    //place back into file
+    //add recorded score to new score.
+    //rec.score += oldRec.score; 
+  }
+
+  //call store_record.
+  store_record(buf, &rec);
+  //place back into file.
+
+  //CALL WRITE HERE//
+  //change location to write to depending on the value of offset.
 }
 
 
@@ -227,9 +265,10 @@ int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **m
 
   } else {
     printf("%li\n",file_size(FILEPATH, fd));
-    //then call adjust_score_file.
-    //remember to close the file!
+
+    adjust_score_file(FILEPATH, fd, player_name, score_to_add); 
     close(fd);
+
     return 0;
   }
 
