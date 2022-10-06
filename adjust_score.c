@@ -160,12 +160,15 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   {
     //debugging
     char * p = buffer+10;
+    /*
     printf("bytes read: %li\n", bytes_read);
     printf("contents: %s\n", buffer);
     printf("score: %s\n", p);
-
+*/
     if(strncmp(buffer, player_name, 10) == 0)
     {
+      printf("contents: %s\n", buffer);
+      printf("score: %s\n", p);
       printf("offset: %li\n", offset);
 
       return offset;

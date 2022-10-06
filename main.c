@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <string.h>
 
-int main(void)
+int main(int argc, char** argv)
 {
   uid_t myuid = getuid();
   gid_t mygid = getgid();
@@ -33,6 +33,13 @@ int main(void)
 
   char **message;
 
-  adjust_score(1001,"BobFoster", 20, message);
+  if(argc == 1)
+  {
+    adjust_score(1001,"J", 20, message);
+  } else if(argc == 2){
+    adjust_score(1001,argv[1], 20, message);
+  } else {
+    printf("Invalid Params\n");
+  }
   return 0;
 }
