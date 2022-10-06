@@ -154,20 +154,24 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   ssize_t bytes_read;
 
   offset = 0;
+
   printf("\n\t find_record file\n");
-  
+  printf("file size: %li\n", file_size(filename, fd));
+
   while((bytes_read = read(fd, buffer, REC_SIZE)) > 0)
   {
     //debugging
     char * p = buffer+10;
-    /*
+    
+    // overwrite \n with \0//
+    buffer[20] = '\0';
     printf("bytes read: %li\n", bytes_read);
     printf("contents: %s\n", buffer);
     printf("score: %s\n", p);
-*/
+
     if(strncmp(buffer, player_name, 10) == 0)
     {
-      printf("contents: %s\n", buffer);
+      printf("\t\nPlayer FOUND: \n%s\n", buffer);
       printf("score: %s\n", p);
       printf("offset: %li\n", offset);
 
@@ -185,6 +189,7 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
     perror("read");
     exit(EXIT_FAILURE);
   } else {
+    printf("No record found.\n");
     //if there was no error, no record was found.
     return -1;
   }
@@ -272,7 +277,7 @@ int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **m
   }
 
   printf("increased effective user uid: %d\n", geteuid());
-  fd = open(FILEPATH, O_RDWR | O_APPEND);
+  fd = open(FILEPATH, O_RDWR);
 
   //lower permissions.
   if(seteuid(getuid()) == -1)
