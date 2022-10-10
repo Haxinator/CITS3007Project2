@@ -37,10 +37,10 @@ const size_t REC_SIZE   = REC_SIZE_;
 //actual
 //#define FILEPATH  "/var/lib/curdle/scores"
 
-#define REC_SIZE 21
-
 //for testing
-#define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
+//#define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
+//good test files
+#define FILEPATH "/home/vagrant/Project/curdle/tests/test-files/good/file0"
 
 /** Initialize a \ref score_record struct.
   *
@@ -84,11 +84,6 @@ size_t file_size(const char * filename, int fd) {
   } else {
       return file_info.st_size;
   }
-
-
-    //probably used for error checking.
-    //maybe to append score to the end of a file?
-  return -1;
 }
 
 
@@ -105,6 +100,45 @@ size_t file_size(const char * filename, int fd) {
 
 struct score_record parse_record(char rec_buf[REC_SIZE]) {
   struct score_record rec;
+  char* name;
+  char* rec_score;
+  char* endptr;
+  size_t size;
+  int score;
+
+  //FIND WAY TO CHECK REC_BUF SIZE
+/*
+  size = sizeof(rec_buf);
+  printf("size: %li\n", size);
+
+  if(size != REC_SIZE)
+  {
+    fprintf(stderr, "Invalid Record size!\n\n Aborting...\n");
+  }
+*/
+  printf("\n\tparse_record file\n");
+  printf("parsing record: %s %s\n", rec_buf, rec_buf+10);
+
+  name = calloc(FIELD_SIZE, sizeof(*rec_buf));
+  rec_score = calloc(FIELD_SIZE, sizeof(*rec_buf));
+
+  strncpy(name, rec_buf, FIELD_SIZE);
+  strncpy(rec_score,rec_buf+FIELD_SIZE, FIELD_SIZE);
+
+  printf("User Name: %s\n", name);
+  
+  //storing long int into an int. Need to check
+  //for conversion errors before assignment.
+  score = strtol(rec_score, &endptr, 0);
+
+  if(*endptr != '\0')
+  {
+    fprintf(stderr, "AAHHAHHAHHA, not a number detected!!!!\n\n Abort!...\n ABORT!!\n");
+  }
+
+  printf("Total Score: %i\n", score);
+
+  score_record_init(&rec, name, score);
   // Note that writing the `rec_buf` parameter as `rec_buf[REC_SIZE]`
   // serves only as documentation of the intended use of the
   // function - C doesn't prevent arrays of other sizes being passed.
@@ -133,6 +167,9 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
   * \param rec pointer to a player's score record.
   */
 void store_record(char buf[REC_SIZE], const struct score_record *rec) {
+  //check size of buff
+  sprintf(buf+FIELD_SIZE, "%d",rec->score);
+  printf("new record: %s %s\n", buf, buf+FIELD_SIZE);
 }
 
 /** search within the open scores file with file descriptor
@@ -154,6 +191,11 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   ssize_t bytes_read;
 
   offset = 0;
+  if(lseek(fd, offset, SEEK_SET) == -1)
+    {
+      fprintf(stderr, "Failed to file offset to start of file: %s\n", strerror(errno));
+      exit(EXIT_FAILURE);
+    }
 
   printf("\n\t find_record file\n");
   printf("file size: %li\n", file_size(filename, fd));
@@ -217,8 +259,7 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
   struct score_record rec;
   struct score_record oldRec;
   //NEED TO CHECK IF SIZE == REC_SIZE IN FUNCTIONS USED
-  char* buf;
-  char* rec_buf;
+  char buf[REC_SIZE];
 
   printf("\n\t adjust_score_file\n");
   score_record_init(&rec, player_name, score_to_add);
@@ -227,20 +268,37 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
   //if old record is found
   if(offset != -1)
   {
-    //CALL READ HERE//
-    //call parse_record (however if new, make a store_record struct).
-    oldRec = parse_record(rec_buf);
-    //adjust the score.
-    //add recorded score to new score.
-    //rec.score += oldRec.score; 
+    if(lseek(fd, offset, SEEK_SET) == -1)
+    {
+        fprintf(stderr, "Failed to set offset to start of file: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    if(read(fd, buf, REC_SIZE) == -1)
+    {
+      perror("read");
+      exit(EXIT_FAILURE);
+    } else {
+      oldRec = parse_record(buf);
+      printf("old record score: %i\n", oldRec.score);
+      printf("score to add: %i\n", score_to_add);
+      //check for overflow or underflow!!!!!!
+      rec.score += oldRec.score; 
+      printf("new record score: %i\n", rec.score);
+    }
   }
 
   //call store_record.
   store_record(buf, &rec);
   //place back into file.
 
+  if(lseek(fd, offset, SEEK_SET) == -1)
+  {
+
+  } else {
   //CALL WRITE HERE//
   //change location to write to depending on the value of offset.
+  }
 }
 
 
