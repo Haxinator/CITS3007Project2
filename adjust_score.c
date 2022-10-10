@@ -24,7 +24,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#include <limits.h>
 /** Size of a field (name or score) in a line of the `scores`
   * file.
   */
@@ -38,9 +38,12 @@ const size_t REC_SIZE   = REC_SIZE_;
 //#define FILEPATH  "/var/lib/curdle/scores"
 
 //for testing
-//#define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
+#define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
 //good test files
-#define FILEPATH "/home/vagrant/Project/curdle/tests/test-files/good/file0"
+//#define FILEPATH "/home/vagrant/Project/curdle/tests/test-files/good/file0"
+
+//Minimum value score can have before it exceeds 10 bytes.
+#define MIN_SCORE -999999999
 
 /** Initialize a \ref score_record struct.
   *
@@ -104,6 +107,7 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
   char* rec_score;
   char* endptr;
   size_t size;
+  long long_score;
   int score;
 
   //FIND WAY TO CHECK REC_BUF SIZE
@@ -129,7 +133,18 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
   
   //storing long int into an int. Need to check
   //for conversion errors before assignment.
-  score = strtol(rec_score, &endptr, 0);
+  long_score = strtol(rec_score, &endptr, 0);
+
+  if(long_score > INT_MAX || long_score < MIN_SCORE)
+  {
+    //overflow detected.
+    fprintf(stderr, "Integer Overflow detected!\n");
+    exit(EXIT_FAILURE);
+
+  } else {
+    //safely assign.
+    score = long_score;
+  }
 
   if(*endptr != '\0')
   {
@@ -139,6 +154,9 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
   printf("Total Score: %i\n", score);
 
   score_record_init(&rec, name, score);
+
+  free(name);
+  free(rec_score);
   // Note that writing the `rec_buf` parameter as `rec_buf[REC_SIZE]`
   // serves only as documentation of the intended use of the
   // function - C doesn't prevent arrays of other sizes being passed.
@@ -168,6 +186,7 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
   */
 void store_record(char buf[REC_SIZE], const struct score_record *rec) {
   //check size of buff
+  sprintf(buf, "%s",rec->name);
   sprintf(buf+FIELD_SIZE, "%d",rec->score);
   printf("new record: %s %s\n", buf, buf+FIELD_SIZE);
 }
@@ -256,6 +275,7 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   */
 void adjust_score_file(const char * filename, int fd, const char * player_name, int score_to_add) {
   int offset;
+  long result;
   struct score_record rec;
   struct score_record oldRec;
   //NEED TO CHECK IF SIZE == REC_SIZE IN FUNCTIONS USED
@@ -270,8 +290,8 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
   {
     if(lseek(fd, offset, SEEK_SET) == -1)
     {
-        fprintf(stderr, "Failed to set offset to start of file: %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
+      perror("lseek");
+      exit(EXIT_FAILURE);
     }
 
     if(read(fd, buf, REC_SIZE) == -1)
@@ -280,24 +300,55 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
       exit(EXIT_FAILURE);
     } else {
       oldRec = parse_record(buf);
+
       printf("old record score: %i\n", oldRec.score);
       printf("score to add: %i\n", score_to_add);
+
       //check for overflow or underflow!!!!!!
-      rec.score += oldRec.score; 
+      result = rec.score + oldRec.score;
+
+      if(result > INT_MAX || result < MIN_SCORE)
+      {
+        fprintf(stderr, "Integer Overflow detected!\n");
+        exit(EXIT_FAILURE);
+      } else{
+        //otherwise safe to add
+        rec.score += oldRec.score;
+      }
+
       printf("new record score: %i\n", rec.score);
     }
+  } else {
+    offset = file_size(filename, fd);
   }
 
-  //call store_record.
-  store_record(buf, &rec);
   //place back into file.
-
   if(lseek(fd, offset, SEEK_SET) == -1)
   {
-
+      perror("lseek");
+      exit(EXIT_FAILURE);
   } else {
-  //CALL WRITE HERE//
-  //change location to write to depending on the value of offset.
+    //call store_record.
+    store_record(buf, &rec);
+
+    if(write(fd, buf, REC_SIZE) == -1)
+    {
+      perror("read");
+      exit(EXIT_FAILURE);
+    } else {
+
+
+
+
+      //THIS IS JUST FOR DEBUGGING REMOVE!!!
+      printf("\n\nNEW RECORD:\n");
+      lseek(fd, offset, SEEK_SET);
+      read(fd, buf, REC_SIZE);
+      printf("%s ", buf);
+      printf("%s\n", buf+FIELD_SIZE);
+    
+
+    }
   }
 }
 

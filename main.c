@@ -38,7 +38,9 @@ int main(int argc, char** argv)
     adjust_score(1001,"J", 20, message);
   } else if(argc == 2){
     adjust_score(1001,argv[1], 20, message);
-  } else {
+  } else if(argc == 3){
+    adjust_score(1001,argv[1], atoi(argv[2]), message);
+  }else {
     printf("Invalid Params\n");
   }
   return 0;
