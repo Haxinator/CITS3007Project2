@@ -23,6 +23,7 @@
 // for off_t
 #include <sys/types.h>
 
+#include <stdbool.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -44,6 +45,8 @@ struct {
   int line;
 } error;
 
+char*** error_message = NULL;
+
 //actual
 //#define FILEPATH  "/var/lib/curdle/scores"
 
@@ -55,6 +58,8 @@ struct {
 //Minimum value score can have before it exceeds 10 bytes.
 #define MIN_SCORE -999999999
 #define MESSAGE_LEN 1000
+#define SUCCESS 1
+#define FAILURE 0
 /** Initialize a \ref score_record struct.
   *
   * \param rec pointer to a \ref score_record struct to initialize.
@@ -69,6 +74,43 @@ void score_record_init(struct score_record *rec, const char *name, int score) {
   strncpy(rec->name, name, FIELD_SIZE);
   rec->name[FIELD_SIZE-1] = '\0';
   rec->score = score;
+}
+
+
+/**
+  * This function checks the return value of other functions
+  * to see if they experienced an error.
+  * If there was an error, memory for the error message is allocated
+  * and it returns true, to signify an error has occured, and false
+  * otherwise.
+  * The overall purpose of the function is to reduce code clutter
+  * and segment the code into more readable chunks.
+  *
+  * \param returnValue the value returned by the function to check.
+  * \return true if an error in that function occured, false otherwise.
+  */
+bool hasError(int returnValue)
+{
+  if(returnValue == -1)
+  {
+    *error_message = malloc(sizeof(char));
+    **error_message = malloc(sizeof(char)*MESSAGE_LEN);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/**
+  * This function sets the error_message to the message specified.
+  * This function assumes hasError has been called and has already 
+  * allocated memory to the message pointer.
+  * It makes sure all messages have the same format.
+  */
+void setMessage(const char* message, int lineNo)
+{
+  snprintf(**error_message, MESSAGE_LEN, 
+      message, lineNo, strerror(errno));
 }
 
 
@@ -92,8 +134,8 @@ size_t file_size(const char * filename, int fd) {
 
   if(error)
   {
-      perror("fstat");
-      error_number = 14;
+      setMessage("%d file_size: Failed to determine the size of the score file. %s\n", 
+              __LINE__);
       exit(EXIT_FAILURE);
   } else {
       return file_info.st_size;
@@ -129,9 +171,9 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
 
   if(name == NULL || rec_score == NULL)
   {
-    error_number = 13;
-    //can't return nulll figure something out
-    //return NULL;
+    setMessage("%d parse_record: allocating memory with calloc failed. %s\n", 
+              __LINE__);
+    exit(EXIT_FAILURE);
   }
 
   strncpy(name, rec_buf, FIELD_SIZE);
@@ -146,8 +188,9 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
   if(long_score > INT_MAX || long_score < MIN_SCORE)
   {
     //overflow detected.
-    fprintf(stderr, "Integer Overflow detected!\n");
-    error_number = 11;
+    //fprintf(stderr, "Integer Overflow detected!\n");
+    setMessage("%d parse_record: Integer overflow detected when assigning recorded score to int. %s\n", 
+              __LINE__);
     exit(EXIT_FAILURE);
 
   } else {
@@ -160,8 +203,9 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
     //technically not needed
     //still works, the NaN, gets
     //replaced by a nul byte.
-    fprintf(stderr, "AAHHAHHAHHA, not a number detected!!!!\n\n Abort!...\n ABORT!!\n");
-    error_number = 12;
+    //fprintf(stderr, "AAHHAHHAHHA, not a number detected!!!!\n\n Abort!...\n ABORT!!\n");
+    setMessage("%d parse_record: Not a number detected in the score segment of the record. %s\n", 
+              __LINE__);
     exit(EXIT_FAILURE);
   }
 
@@ -231,13 +275,17 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   char buffer[REC_SIZE];
   off_t offset;
   ssize_t bytes_read;
+  int error;
 
+  //error is a value signifying error in this function
+  error = -2;
   offset = 0;
-  if(lseek(fd, offset, SEEK_SET) == -1)
+
+  if(hasError(lseek(fd, offset, SEEK_SET)))
     {
-      fprintf(stderr, "Failed to file offset to start of file: %s\n", strerror(errno));
-      error_number = 10;
-      exit(EXIT_FAILURE);
+      setMessage("%d find_record: Failed to set file offset to start of file. %s\n", 
+                __LINE__);
+      return error;
     }
 
   printf("\n\t find_record file\n");
@@ -268,12 +316,12 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
     }
   }
 
-  if(bytes_read == -1)
+  if(hasError(bytes_read))
   {
     //read error occured.
-    perror("read");
-    error_number = 9;
-    exit(EXIT_FAILURE);
+    setMessage("%d find_record: Failed to read score file. %s\n", 
+              __LINE__);
+    return error;
   } else {
     printf("No record found.\n");
     //if there was no error, no record was found.
@@ -310,21 +358,24 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
   score_record_init(&rec, player_name, score_to_add);
   offset = find_record(filename, fd, player_name);
 
-  //if old record is found
-  if(offset != -1)
+  if(offset == -2){
+    //if there was an error
+    return;
+  }else if(offset != -1)
   {
-    if(lseek(fd, offset, SEEK_SET) == -1)
+    //if old record was found
+    if(hasError(lseek(fd, offset, SEEK_SET)))
     {
-      perror("lseek");
-      error_number = 4;
-      exit(EXIT_FAILURE);
+      setMessage("%d adjust_score_file: Failed to set file offset to record found. %s\n", 
+                __LINE__);
+      return;
     }
 
-    if(read(fd, buf, REC_SIZE) == -1)
+    if(hasError(read(fd, buf, REC_SIZE)))
     {
-      perror("read");
-      error_number = 5;
-      exit(EXIT_FAILURE);
+      setMessage("%d adjust_score_file: Failed to read contents of record found. %s\n", 
+                __LINE__);
+      return;
     } else {
       oldRec = parse_record(buf);
 
@@ -336,9 +387,11 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
 
       if(result > INT_MAX || result < MIN_SCORE)
       {
-        fprintf(stderr, "Integer Overflow detected!\n");
-        error_number = 6;
-        exit(EXIT_FAILURE);
+        //fprintf(stderr, "Integer Overflow detected!\n");
+        setMessage("%d adjust_score_file: Buffer overflow detected when"
+                   " summing score recorded with the score to add. %s\n", 
+                __LINE__);
+        return;
       } else{
         //otherwise safe to add
         rec.score += oldRec.score;
@@ -351,20 +404,21 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
   }
 
   //place back into file.
-  if(lseek(fd, offset, SEEK_SET) == -1)
+  if(hasError(lseek(fd, offset, SEEK_SET)))
   {
-      perror("lseek");
-      error_number = 7;
-      exit(EXIT_FAILURE);
+      setMessage("%d adjust_score_file: Failed to either, set offset to end of file"
+                 " or set offset to where the record was found. %s\n", 
+              __LINE__);
+      return;
   } else {
     //call store_record.
     store_record(buf, &rec);
 
-    if(write(fd, buf, REC_SIZE) == -1)
+    if(hasError(write(fd, buf, REC_SIZE)))
     {
-      perror("read");
-      error_number = 8;
-      exit(EXIT_FAILURE);
+      setMessage("%d adjust_score_file: Failed to write to the score file. %s\n", 
+              __LINE__);
+      return;
     } else {
 
 
@@ -405,110 +459,56 @@ int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **m
   int fd;
 
   errno = 0;
+  error_message = &message; 
 
   printf("\n\t adjust_score file\n");
   printf("curdle uid: %d\n", uid);
   printf("current user uid: %d\n", getuid());
 
   //increase permissions.
-  if(seteuid(uid) == -1 || 1)
+  if(hasError(seteuid(uid)))
   {
-    error.number = 1;
-    error.line = __LINE__;
-    goto errorcheck;
-    //exit(EXIT_FAILURE);
+    setMessage(
+        "%d adjust_score: Failed to increase current user's eUID to \"curdle\". %s\n", 
+        __LINE__);
+    fprintf(stderr, "%s", *message);
+    return FAILURE;
   }
 
   printf("increased effective user uid: %d\n", geteuid());
   fd = open(FILEPATH, O_RDWR);
 
   //lower permissions.
-  if(seteuid(getuid()) == -1)
+  if(hasError(seteuid(getuid())))
   {
-    error.number = 2;
-    error.line = __LINE__;
-    goto errorcheck;
-    //exit(EXIT_FAILURE);
+    setMessage("%d adjust_score: Failed to lower current user's eUID to UID. %s\n", 
+        __LINE__);
+    fprintf(stderr, "%s", *message);
+    return FAILURE;
   }
 
   printf("lowered effective user uid: %d\n", geteuid());
 
-  if(fd == -1)
+  if(hasError(fd))
   {
-    error.number = 3;
-    error.line = __LINE__;
-    goto errorcheck;
-    //exit(EXIT_FAILURE);
+    setMessage("%d adjust_score: Failed to open score file. %s\n", 
+                __LINE__);
+    fprintf(stderr, "%s", *message);
+
+    return FAILURE;
 
   } else {
     printf("%li\n",file_size(FILEPATH, fd));
     adjust_score_file(FILEPATH, fd, player_name, score_to_add); 
     close(fd);
 
-    errorcheck:
-
-      if(error.number > 0)
-      {
-        message = malloc(sizeof(char));
-        *message = malloc(MESSAGE_LEN*sizeof(char));
-
-        switch(error.number){
-          case 1:
-            snprintf(*message, MESSAGE_LEN, 
-                "%d adjust_score: Failed to increase current user's eUID to \"curdle\". %s\n", 
-                error.line, strerror(errno));
-            fprintf(stderr, "%s", *message);
-            break;
-          case 2:
-            snprintf(*message, MESSAGE_LEN, 
-                "%d adjust_score: Failed to lower current user's eUID to UID. %s\n", 
-                error.line, strerror(errno));
-            fprintf(stderr, "%s", *message);
-            break;
-          case 3:
-            snprintf(*message, MESSAGE_LEN, 
-                "%d adjust_score: Failed to open score file. %s\n", 
-                error.line, strerror(errno));
-            fprintf(stderr, "%s", *message);
-            break;
-          case 4:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 5:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 6:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 7:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 8:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 9:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 10:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 11:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 12:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 13:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-          case 14:
-            fprintf(stderr, "Failed to increase permissions: %s\n", strerror(errno));
-            break;
-        }
-        return 0;
-      }
-
-      return 1;
+    if(message != NULL)
+    {
+      fprintf(stderr, "%s", *message);
+      return FAILURE;
+    } else {
+      return SUCCESS;
+    }
   }
 
 }
