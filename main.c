@@ -44,5 +44,6 @@ int main(int argc, char** argv)
   }else {
     printf("Invalid Params\n");
   }
+  fprintf(stderr, "%s", error_message);
   return 0;
 }
