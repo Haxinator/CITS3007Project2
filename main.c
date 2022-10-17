@@ -31,7 +31,7 @@ int main(int argc, char** argv)
   printf("myeuid: %d\n", geteuid());
   printf("myegid: %d\n", getegid());
 
-  char *error_message = NULL;
+  char* error_message = malloc(sizeof(char)*5);
   char **message = &error_message;
 
   if(argc == 1)

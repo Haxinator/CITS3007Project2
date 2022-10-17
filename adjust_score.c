@@ -37,11 +37,11 @@
 //#define FILEPATH  "/var/lib/curdle/scores"
 
 //test good file
-//#define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
+#define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
 //FILE that should trigger invalid file format, decmial number in unexpected position
 //#define FILEPATH "/home/vagrant/Project/curdle/src/bad1.txt"
 //trigger invalid file, bad size, one record is not exactly 21 bytes
-#define FILEPATH "/home/vagrant/Project/curdle/src/bad2.txt"
+//#define FILEPATH "/home/vagrant/Project/curdle/src/bad2.txt"
 //good test files
 //#define FILEPATH "/home/vagrant/Project/curdle/tests/test-files/good/file0"
 
@@ -53,19 +53,9 @@
 //denote SUCCESS & FAILURE in main function
 #define SUCCESS 1
 #define FAILURE 0
-//CUSTOM states the error message is custom
-#define CUSTOM true
-//PERROR denotes whether an error message uses errno
-#define ERRNO false
 //used to denote a custom error
 //not due to library function failing.
 #define CUSTOMERROR -1
-/** Initialize a \ref score_record struct.
-  *
-  * \param rec pointer to a \ref score_record struct to initialize.
-  * \param name player name to be inserted into `rec`.
-  * \param score player score to be inserted into `rec`.
-  */
 
 //global reference to the error message passed to adjust_score
 //hasOccured is used to tell if a message occured.
@@ -80,6 +70,12 @@ struct score_record{
   long score;
 };
 
+/** Initialize a \ref score_record struct.
+  *
+  * \param rec pointer to a \ref score_record struct to initialize.
+  * \param name player name to be inserted into `rec`.
+  * \param score player score to be inserted into `rec`.
+  */
 void score_record_init(struct score_record *rec, const char *name, long score) {
   // this function is needed to initialize a score_record,
   // because you can't *assign* to the name member -- it's an array.
@@ -139,7 +135,7 @@ bool hasError(int returnValue)
 void perrorMessage(const char* message, int lineNo)
 {
   snprintf(**error.message, MESSAGE_LEN, 
-      message, lineNo, strerror(errno));
+        message, __FILE__, lineNo, strerror(errno));
 }
 
 /**
@@ -158,7 +154,7 @@ void setMessage(const char* message, int lineNo)
 {
   hasError(CUSTOMERROR);
   snprintf(**error.message, MESSAGE_LEN, 
-        message, lineNo);
+        message, __FILE__, lineNo);
 }
 
 /** Return the size of the open file with file descriptor `fd`.
@@ -181,7 +177,7 @@ size_t file_size(const char * filename, int fd) {
 
   if(hasError(value))
   {
-      perrorMessage("%d file_size: Failed to determine the size of the score file. %s\n",
+      perrorMessage("%s:%d:file_size: Failed to determine the size of the score file. %s\n",
                 __LINE__);
       return value;
   } else {
@@ -207,7 +203,6 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
   char* name;
   char* rec_score;
   char* endptr;
-  size_t size;
   long score;
   char* copy_rec_buf; 
 
@@ -223,7 +218,7 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
 
   if(name == NULL || rec_score == NULL)
   {
-    setMessage("%d parse_record: allocating memory with calloc failed.\n", 
+    setMessage("%s:%d:parse_record: allocating memory with calloc failed.\n", 
               __LINE__);
     return error;
   }
@@ -251,7 +246,7 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
 */
     if(*endptr != '\0') {
     setMessage(
-              "%d parse_record: Not a number detected in the score segment of the record.\n", 
+              "%s:%d:parse_record: Not a number detected in the score segment of the record.\n", 
               __LINE__);
     return error;
   } else {
@@ -334,7 +329,7 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
 
   if(hasError(lseek(fd, offset, SEEK_SET)))
     {
-      perrorMessage("%d find_record: Failed to set file offset to start of file. %s\n", 
+      perrorMessage("%s:%d:find_record: Failed to set file offset to start of file. %s\n", 
                 __LINE__);
       return error;
     }
@@ -349,22 +344,20 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
     
     if(buffer[20] != '\n')
     {
-      setMessage("find_record: Score file has invalid format, the 21st character " 
+      setMessage("%s:%d:find_record: Score file has invalid format, the 21st character " 
                 "in a record was not a '\\n'.\n",
                 __LINE__);
     } else if(buffer[9] != '\0'){
-      setMessage("find_record: Score file has invalid format, 10th character " 
+      setMessage("%s:%d:find_record: Score file has invalid format, 10th character " 
                 "in a record was not a '\\0'.\n",
                 __LINE__);
 
-    } else if(isdigit(buffer[10]) == 0){
-      setMessage("find_record: Score file has invalid format, a record does not "
+    } else if(isdigit(buffer[10]) == 0 && buffer[10] != '-'){
+      setMessage("%s:%d:find_record: Score file has invalid format, a record does not "
                 "contain a decimal number in the valid format. The score should "
                 "begin on the 11th character right padded with '\\0'. \n",
                 __LINE__);
       fprintf(stderr, "Instead got %c\n", buffer[10]);
-      fprintf(stderr, "Instead got %d\n", isdigit(buffer[10]));
-
     }
     // overwrite \n with \0//
     buffer[20] = '\0'; //remove once messages aren't needed
@@ -389,7 +382,7 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   if(hasError(bytes_read))
   {
     //read error occured.
-    perrorMessage("%d find_record: Failed to read score file. %s\n", 
+    perrorMessage("%s:%d:find_record: Failed to read score file. %s\n", 
               __LINE__);
     return error;
   } else {
@@ -418,7 +411,6 @@ off_t find_record(const char * filename, int fd, const char * player_name) {
   */
 void adjust_score_file(const char * filename, int fd, const char * player_name, int score_to_add) {
   int offset;
-  long result;
   struct score_record rec;
   struct score_record oldRec;
   //NEED TO CHECK IF SIZE == REC_SIZE IN FUNCTIONS USED
@@ -429,24 +421,105 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
   offset = find_record(filename, fd, player_name);
 
   if(error.hasOccured){
+    return;
+  }
+
+  if(offset < 0)
+  {
+    offset = file_size(filename, fd);
+    if(error.hasOccured)
+    {
+      return;
+    }
+  }
+
+  if(hasError(lseek(fd,offset, SEEK_SET)))
+  {
+    perrorMessage("%s:%d:adjust_score_file: Failed to set file offset to record found. %s\n", 
+              __LINE__);
+    return;
+  } 
+
+  if(offset > -1)
+  {
+    if(hasError(read(fd, buf, REC_SIZE)))
+    {
+      perrorMessage("%s:%d:adjust_score_file: Failed to read contents of record found. %s\n", 
+                __LINE__);
+      return;
+    }
+
+    oldRec = parse_record(buf);
+
+    if(error.hasOccured)
+    {
+      return;
+    }
+    printf("old record score: %li\n", oldRec.score);
+    printf("score to add: %i\n", score_to_add);
+
+    rec.score += oldRec.score;
+
+    if(rec.score > SCORE_MAX || rec.score < SCORE_MIN)
+    {
+      //allocate memory for error message
+      setMessage("%s:%d:adjust_score_file: Invalid byte size detected when "
+                 "summing score recorded with the score to add. "
+                 "New score is larger than 10 bytes.\n", 
+              __LINE__);
+      return;
+    }
+  }
+
+  //place back into file.
+  if(hasError(lseek(fd, offset, SEEK_SET)))
+  {
+    perrorMessage("%s:%d:adjust_score_file: Failed to either, set offset to end of file "
+              "or set offset to where the record was found. %s\n", 
+              __LINE__);
+    return;
+  } else {
+    //call store_record.
+    store_record(buf, &rec);
+
+    if(hasError(write(fd, buf, REC_SIZE)))
+    {
+      perrorMessage("%s:%d:adjust_score_file: Failed to write to the score file. %s\n", 
+              __LINE__);
+      return;
+    }
+/******************************************/
+    //THIS IS JUST FOR DEBUGGING REMOVE!!!
+    printf("\n\nNEW RECORD:\n");
+    lseek(fd, offset, SEEK_SET);
+    read(fd, buf, REC_SIZE);
+    printf("%s ", buf);
+    printf("%s\n", buf+FIELD_SIZE);
+    
+/*****************************************/
+  }
+/*
+  if(error.hasOccured){
     //if there was an error
     return;
   }else if(offset < 0){
     //if no record was found
+    printf("setting offset to EOF.\n");
     offset = file_size(filename, fd);
     if(error.hasOccured)
     {
+      printf("error occured\n");
       return;
     }
   }else if(offset > -1){
     //if old record was found
     if(hasError(lseek(fd, offset, SEEK_SET)))
     {
-      perrorMessage("%d adjust_score_file: Failed to set file offset to record found. %s\n", 
+      perrorMessage("%s:%d:adjust_score_file: Failed to set file offset to record found. %s\n", 
                 __LINE__);
       return;
     } else if(hasError(read(fd, buf, REC_SIZE))){
-      perrorMessage("%d adjust_score_file: Failed to read contents of record found. %s\n", 
+      perrorMessage("%s:%d:adjust_score_file: Failed to read contents of record found. %s\n", 
                 __LINE__);
       return;
     } else {
@@ -465,7 +538,7 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
       if(rec.score > SCORE_MAX || rec.score < SCORE_MIN)
       {
         //allocate memory for error message
-        setMessage("%d adjust_score_file: Invalid byte size detected when "
+        setMessage("%s:%d:adjust_score_file: Invalid byte size detected when "
                    "summing score recorded with the score to add. "
                    "New score is larger than 10 bytes.\n", 
                 __LINE__);
@@ -473,40 +546,11 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
       }
 
       printf("new record score: %li\n", rec.score);
-
-      //place back into file.
-      if(hasError(lseek(fd, offset, SEEK_SET)))
-      {
-        perrorMessage("%d adjust_score_file: Failed to either, set offset to end of file "
-                  "or set offset to where the record was found. %s\n", 
-                  __LINE__);
-        return;
-      } else {
-        //call store_record.
-        store_record(buf, &rec);
-
-        if(hasError(write(fd, buf, REC_SIZE)))
-        {
-          perrorMessage("%d adjust_score_file: Failed to write to the score file. %s\n", 
-                  __LINE__);
-          return;
-        } else {
-
-
-
-    /******************************************/
-          //THIS IS JUST FOR DEBUGGING REMOVE!!!
-          printf("\n\nNEW RECORD:\n");
-          lseek(fd, offset, SEEK_SET);
-          read(fd, buf, REC_SIZE);
-          printf("%s ", buf);
-          printf("%s\n", buf+FIELD_SIZE);
-        
-    /*****************************************/
-        }
-      }
     }
+    
+
   }
+*/
 }
 
 
@@ -530,9 +574,11 @@ void adjust_score_file(const char * filename, int fd, const char * player_name, 
   */
 int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **message) {
   int fd;
+  size_t fileSize;
 
   errno = 0;
   error.message = &message; 
+  error.hasOccured = false;
 
   printf("\n\t adjust_score\n");
   printf("curdle uid: %d\n", uid);
@@ -553,11 +599,10 @@ int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **m
   } 
   */
   if(score_to_add < SCORE_MIN){
-    setMessage("%d adjust_score: Invalid score_to_add passed. `score_to_add` " 
+    setMessage("%s:%d:adjust_score: Invalid score_to_add passed. `score_to_add` " 
               "was larger than 10 bytes. `score_to_add` must be an int and "
               "can only be at most 10 bytes in size this includes the minus symbol.\n", 
               __LINE__);
-    fprintf(stderr, "%s", *message);
     return FAILURE;
   } else if(message == NULL){
     //user didn't provide a valid address to store error messages.
@@ -570,9 +615,8 @@ int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **m
   //increase permissions.
   if(hasError(seteuid(uid)))
   {
-    perrorMessage("%d adjust_score: Failed to increase current user's eUID to \"curdle\". %s\n",
+    perrorMessage("%s:%d:adjust_score: Failed to increase current user's eUID to \"curdle\". %s\n",
               __LINE__);
-    fprintf(stderr, "%s", *message);
     return FAILURE;
   }
 
@@ -582,40 +626,34 @@ int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **m
   //lower permissions.
   if(hasError(seteuid(getuid())))
   {
-    perrorMessage("%d adjust_score: Failed to lower current user's eUID to UID. %s\n", 
+    perrorMessage("%s:%d:adjust_score: Failed to lower current user's eUID to UID. %s\n", 
               __LINE__);
-    fprintf(stderr, "%s", *message);
     return FAILURE;
   }
 
+  fileSize = file_size(FILEPATH,fd);
   printf("lowered effective user uid: %d\n", geteuid());
-  printf("%li\n",file_size(FILEPATH, fd)%21);
-  printf("%d\n",file_size(FILEPATH, fd)%21 == 0);
+  printf("%li\n",fileSize%21);
+  printf("%d\n",fileSize%21 == 0);
   if(hasError(fd))
   {
-    perrorMessage("%d adjust_score: Failed to open score file. %s\n", 
+    perrorMessage("%s:%d:adjust_score: Failed to open score file. %s\n", 
               __LINE__);
-    fprintf(stderr, "%s", *message);
-
     return FAILURE;
 
-  } else if((file_size(FILEPATH, fd)%21) != 0){
-    setMessage("%d adjust_score: Score file has invalid size. "
+  } else if((fileSize%21) != 0){
+    setMessage("%s:%d:adjust_score: Score file has invalid size. "
               "Not all records are of length 21.\n", 
               __LINE__);
-    fprintf(stderr, "%s", *message);
-
     return FAILURE;
 
   }else {
 
-    printf("%li\n",file_size(FILEPATH, fd));
     adjust_score_file(FILEPATH, fd, player_name, score_to_add); 
     close(fd);
 
     if(error.hasOccured)
     {
-      fprintf(stderr, "%s", *message);
       return FAILURE;
     } else {
       return SUCCESS;
