@@ -31,20 +31,6 @@
 
 //test good file
 #define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
-//FILE that should trigger invalid file format, decmial number in unexpected position
-//#define FILEPATH "/home/vagrant/Project/curdle/src/bad1.txt"
-//trigger invalid file, bad size, one record is not exactly 21 bytes
-//#define FILEPATH "/home/vagrant/Project/curdle/src/bad2.txt"
-//trigger failed to open file DNE
-//#define FILEPATH "/home/vagrant/Project/curdle/src/b.txt"
-//trigger no '\n' in file.
-//#define FILEPATH "/home/vagrant/Project/curdle/tests/test-files/good/file0"
-//trigger no '\0' in name in file.
-//#define FILEPATH "/home/vagrant/Project/curdle/src/bad3.txt"
-//trigger decimal number not found
-//#define FILEPATH "/home/vagrant/Project/curdle/src/bad4.txt"
-//good test files
-//#define FILEPATH "/home/vagrant/Project/curdle/tests/test-files/good/file9"
 
 //Minimum and Maximum value score can have before it exceeds 10 bytes.
 #define SCORE_MIN -999999999
@@ -231,7 +217,7 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
   if(name == NULL || rec_score == NULL)
   {
     setMessage("Score file %s\n: %s: %d: parse_record: "
-              "allocating memory with calloc failed.\n",
+              "Allocating memory with calloc failed.\n",
               __LINE__);
 
     return error;
@@ -335,7 +321,7 @@ off_t find_record(int fd, const char * player_name) {
 
       setMessage("Score file %s\n%s: %d: find_record: "
                 "Score file has invalid format, a record does not "
-                "contain a decimal number in the valid format. The score should "
+                "contain a decimal number in the valid format. The score must "
                 "begin on the 11th character right padded with '\\0'. \n",
                 __LINE__);
     
@@ -396,7 +382,7 @@ void adjust_score_file(int fd, const char * player_name, int score_to_add) {
 
     setMessage("Score file %s\n%s: %d: adjust_score_file: "
         "Invalid player name passed. Name is too large. "
-        "name must be 10 bytes in size with the tenth byte being a nul byte\n", 
+        "Name must be 10 bytes in size with the tenth byte being a nul byte.\n", 
         __LINE__);
 
     return;
