@@ -27,10 +27,7 @@
 #define REC_SIZE 21
 
 //location of scores file
-//#define FILEPATH  "/var/lib/curdle/scores"
-
-//test good file
-#define FILEPATH "/home/vagrant/Project/curdle/src/test.txt"
+#define FILEPATH  "/var/lib/curdle/scores"
 
 //Minimum and Maximum value score can have before it exceeds 10 bytes.
 #define SCORE_MIN -999999999
