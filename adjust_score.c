@@ -227,6 +227,9 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
     setMessage("Score file %s\n: %s: %d: parse_record: "
               "Allocating memory with calloc failed.\n",
               __LINE__);
+    //just in case
+    free(name);
+    free(rec_score);
 
     return error;
   }
@@ -241,6 +244,8 @@ struct score_record parse_record(char rec_buf[REC_SIZE]) {
     setMessage("Score file %s\n%s: %d: parse_record: "
               "Not a number detected in the score segment of the record.\n",
               __LINE__);
+    free(name);
+    free(rec_score);
 
     return error;
 
