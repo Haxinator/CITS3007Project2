@@ -1,5 +1,9 @@
-#define _POSIX_C_SOURCE 200809L
-#define _XOPEN_SOURCE 500
+/*
+Authour: Joshua Noble
+Student Number: 22760978
+Submission for CITS3007 Project 2022
+Part 2
+ */
 
 /** \file adjust_score.c
  * \brief Functions for safely amending a player's score in the
@@ -8,6 +12,9 @@
  * Contains the \ref adjust_score_file function, plus supporting data
  * structures and functions used by that function.
  */
+
+#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 500
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -188,6 +195,10 @@ size_t file_size(int fd) {
   * However, it does check whether there are non-decimal
   * characters in the score.
   *
+  * NOTE2: It is the callers reponsibility to ensure
+  * rec_buf is of size REC_SIZE, else this function's
+  * behaviour is undefined.
+  *
   * the local variable error has no real purpose, used
   * to signify that the function returned due to an
   * error. So it's just for readability.
@@ -197,13 +208,13 @@ size_t file_size(int fd) {
   */
 
 struct score_record parse_record(char rec_buf[REC_SIZE]) {
-  struct score_record rec;
   struct score_record error;
-  char* name;
+  struct score_record rec;
+  char* copy_rec_buf; 
   char* rec_score;
   char* endptr;
+  char* name;
   long score;
-  char* copy_rec_buf; 
 
   name = calloc(FIELD_SIZE, sizeof(*rec_buf));
   rec_score = calloc(FIELD_SIZE, sizeof(*rec_buf));
@@ -281,8 +292,8 @@ void store_record(char buf[REC_SIZE], const struct score_record *rec) {
   */
 off_t find_record(int fd, const char * player_name) {
   char buffer[REC_SIZE];
-  off_t offset;
   ssize_t bytes_read;
+  off_t offset;
   int error;
 
   error = -2;
@@ -361,10 +372,10 @@ off_t find_record(int fd, const char * player_name) {
   * \param score_to_add amount by which to increment the score.
   */
 void adjust_score_file(int fd, const char * player_name, int score_to_add) {
-  int offset;
-  struct score_record rec;
   struct score_record oldRec;
+  struct score_record rec;
   char buf[REC_SIZE];
+  int offset;
   
   score_record_init(&rec, player_name, score_to_add);
   offset = find_record(fd, player_name);
@@ -405,7 +416,7 @@ void adjust_score_file(int fd, const char * player_name, int score_to_add) {
 
   } else {
     
-    //offset > -1 record was found
+    //record was found
     if(hasError(read(fd, buf, REC_SIZE)))
     {
       perrorMessage("Score file %s\n%s: %d: adjust_score_file: "
@@ -509,6 +520,7 @@ int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **m
     return FAILURE;
 
   } else {
+
     fd = open(FILEPATH, O_RDWR);
   }
 

@@ -31,7 +31,7 @@ int main(int argc, char** argv)
   printf("myeuid: %d\n", geteuid());
   printf("myegid: %d\n", getegid());
 
-  char* error_message = malloc(sizeof(char)*5);
+  char* error_message = NULL;
   char **message = &error_message;
 
   if(argc == 1)
@@ -44,6 +44,10 @@ int main(int argc, char** argv)
   }else {
     printf("Invalid Params\n");
   }
-  fprintf(stderr, "%s", error_message);
+  if(error_message != NULL)
+  {
+    fprintf(stderr, "%s", error_message);
+  }
+  free(error_message);
   return 0;
 }
