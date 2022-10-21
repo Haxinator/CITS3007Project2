@@ -559,11 +559,18 @@ int adjust_score(uid_t uid, const char * player_name, int score_to_add, char **m
   }else {
 
     adjust_score_file(fd, player_name, score_to_add); 
-    close(fd);
 
-    if(error.hasOccured)
+    if(hasError(close(fd)))
     {
-      //error occured in adjust_score_file.
+      perrorMessage("Score file %s\n%s: %d: adjust_score: "
+                  "Failed to close score file. %s\n", 
+                  __LINE__);
+    
+      return FAILURE;
+
+    } else if(error.hasOccured) {
+      /*error occured in adjust_score_file.
+      message already allocated.*/
       return FAILURE;
 
     } else {
