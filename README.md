@@ -1,4 +1,4 @@
-##Project for Secure Coding.
+## Project for Secure Coding.
 
 
 Create code necessary to find and update user scores for the game "curdle" in a locally stored file whilst ensuring no vulnerabilities are introduced in the application.
